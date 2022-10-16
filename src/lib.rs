@@ -1,10 +1,10 @@
 #![no_std]
 
 use asr::{
+    gba,
     time_util::frame_count,
     timer::{self, TimerState},
     watcher::Pair,
-    Address, Process,
 };
 use bytemuck::{Pod, Zeroable};
 use spinning_top::{const_spinlock, Spinlock};
@@ -21,29 +21,8 @@ struct State {
     game: Option<Game>,
 }
 
-struct Emulator {
-    process: Process,
-    ewram: u32,
-    iwram: u32,
-}
-
-impl Emulator {
-    fn new_vba(process: Process) -> Option<Self> {
-        let [ewram, iwram]: [u32; 2] = process.read(Address(0x00400000 + 0x001A8F50)).ok()?;
-        if ewram == 0 || iwram == 0 {
-            return None;
-        }
-        // asr::print_message(&format!("ewram: {:08X}, iwram: {:08X}", ewram, iwram));
-        Some(Self {
-            process,
-            ewram,
-            iwram,
-        })
-    }
-}
-
 struct Game {
-    emulator: Emulator,
+    emulator: gba::Emulator,
     pause_menu: Watcher<PauseMenu>,
     scene: Watcher<Scene>,
     dhc_big_key: Watcher<i32>,
@@ -76,7 +55,7 @@ struct VisitedScenes {
 }
 
 impl Game {
-    fn new_ntscj(emulator: Emulator) -> Self {
+    fn new_ntscj(emulator: gba::Emulator) -> Self {
         Self {
             emulator,
             pause_menu: Watcher::new(0x2002B32),
@@ -160,16 +139,9 @@ impl<T: Pod> Watcher<T> {
             address,
         }
     }
-    fn update(&mut self, emulator: &Emulator) -> Option<&Pair<T>> {
-        let memory_section = self.address >> 24;
-        let ram_addr = match memory_section {
-            2 => emulator.ewram,
-            3 => emulator.iwram,
-            _ => return self.watcher.update(None),
-        };
-        let addr = ram_addr + (self.address & 0xFF_FF_FF);
-        self.watcher
-            .update(emulator.process.read(Address(addr as u64)).ok())
+
+    fn update(&mut self, emulator: &gba::Emulator) -> Option<&Pair<T>> {
+        self.watcher.update(emulator.read(self.address).ok())
     }
 }
 
@@ -316,12 +288,10 @@ mod inventory_slot {
 pub extern "C" fn update() {
     let mut state = STATE.lock();
     if state.game.is_none() {
-        if let Some(process) = Process::attach("VisualBoyAdvance.exe") {
-            state.game = Emulator::new_vba(process).map(Game::new_ntscj);
-        }
+        state.game = gba::Emulator::attach().map(Game::new_ntscj);
     }
     if let Some(game) = &mut state.game {
-        if !game.emulator.process.is_open() {
+        if !game.emulator.is_open() {
             state.game = None;
             return;
         }

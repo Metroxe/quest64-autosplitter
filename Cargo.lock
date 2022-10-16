@@ -5,7 +5,7 @@ version = 3
 [[package]]
 name = "asr"
 version = "0.1.0"
-source = "git+https://github.com/CryZe/asr#fa98138c01547d2d5edda54c4b0ec8cd60bcb080"
+source = "git+https://github.com/CryZe/asr#a651ee27ab4e3e9538ab9aca23f69b2435658582"
 dependencies = [
  "bytemuck",
  "itoa",
