@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Commit
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+
+      - name: Install Target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build
+        run: cargo build --target wasm32-unknown-unknown
+
+  clippy:
+    name: Check clippy lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Commit
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+
+      - name: Install Target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Run Clippy
+        run: cargo clippy --all-features
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Commit
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+
+      - name: Install Target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Run cargo fmt
+        run: cargo fmt -- --check || true
